@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { v4 as getUUID } from "uuid";
 import DeleteTaskModal from "@/components/todo/DeleteTaskModal";
 import TaskList from "@/components/todo/TaskList";
 import TaskAddEditModal from "@/components/todo/TaskAddEditModal";
-import { PlusIcon, SearchIcon } from "lucide-react";
-import { Task } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import SortingButton from "@/components/todo/SortingButton";
+import { PlusIcon, SearchIcon } from "lucide-react";
+import { SortDirection, SortMethod, SortOption, Task } from "@/types";
+import { checkType } from "@/utils/checkType";
 
 export default function TodoList() {
   const [isLoading, setIsLoading] = useState(true);
@@ -16,18 +18,50 @@ export default function TodoList() {
   const [deleteModalTask, setDeleteModalTask] = useState<Task | null>(null);
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortOption, setSortOption] = useState<SortOption>(
+    SortOption.CreatedAt,
+  );
+  const [sortDirection, setSortDirection] = useState<SortDirection>(
+    SortDirection.Desc,
+  );
+
+  const SORT_METHODS: SortMethod[] = [
+    { label: "Created At", value: SortOption.CreatedAt },
+    { label: "Updated At", value: SortOption.UpdatedAt },
+    { label: "Title", value: SortOption.Title },
+  ];
 
   useEffect(() => {
     const storedTasks = localStorage.getItem("tasks");
-    if (storedTasks) {
-      setTasks(JSON.parse(storedTasks));
-    }
+    const storedSortOption = localStorage.getItem("sortOption") as SortOption;
+    const storedSortDirection = localStorage.getItem(
+      "sortDirection",
+    ) as SortDirection;
+
+    storedTasks && setTasks(JSON.parse(storedTasks));
+
+    storedSortOption &&
+      checkType(SortOption, storedSortOption) &&
+      setSortOption(storedSortOption);
+
+    storedSortDirection &&
+      checkType(SortDirection, storedSortDirection) &&
+      setSortDirection(storedSortDirection as SortDirection);
+
     setIsLoading(false);
   }, []);
 
   useEffect(() => {
     localStorage.setItem("tasks", JSON.stringify(tasks));
   }, [tasks]);
+
+  useEffect(() => {
+    localStorage.setItem("sortOption", sortOption);
+  }, [sortOption]);
+
+  useEffect(() => {
+    localStorage.setItem("sortDirection", sortDirection);
+  }, [sortDirection]);
 
   const handleAddTask = (title: string, description?: string) => {
     const dateNow = Date.now();
@@ -70,11 +104,41 @@ export default function TodoList() {
     }
   };
 
-  const filteredTasks = tasks.filter(
-    (task) =>
+  const filterFunction = (task: Task) => {
+    return (
       task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      task.description.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+      task.description.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  };
+
+  const sortFunction = (a: Task, b: Task) => {
+    if (sortOption === "title") {
+      return sortDirection === SortDirection.Asc
+        ? a.title.localeCompare(b.title)
+        : b.title.localeCompare(a.title);
+    } else {
+      return sortDirection === SortDirection.Asc
+        ? a[sortOption] - b[sortOption]
+        : b[sortOption] - a[sortOption];
+    }
+  };
+
+  const sortedAndFilteredTasks = useMemo(() => {
+    return tasks.filter(filterFunction).sort(sortFunction);
+  }, [tasks, searchTerm, sortOption, sortDirection]);
+
+  const handleSort = (option: SortOption) => {
+    if (option === sortOption) {
+      setSortDirection(
+        sortDirection === SortDirection.Asc
+          ? SortDirection.Desc
+          : SortDirection.Asc,
+      );
+    } else {
+      setSortOption(option);
+      setSortDirection(SortDirection.Desc);
+    }
+  };
 
   return (
     <>
@@ -98,11 +162,22 @@ export default function TodoList() {
             <span className="hidden sm:inline-block">Add Task</span>
           </button>
         </div>
+        <div className="mb-4 flex items-center justify-end space-x-4">
+          {SORT_METHODS.map((method) => (
+            <SortingButton
+              key={method.value}
+              option={method}
+              sortOption={sortOption}
+              sortDirection={sortDirection}
+              onClick={handleSort}
+            />
+          ))}
+        </div>
         {isLoading ? (
           <LoadingSpinner className="mt-10" />
         ) : (
           <TaskList
-            tasks={filteredTasks}
+            tasks={sortedAndFilteredTasks}
             onEdit={(task) => {
               setCurrentTask(task);
               setIsTaskModalOpen(true);
