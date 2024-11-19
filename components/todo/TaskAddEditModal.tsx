@@ -10,7 +10,7 @@ import TextInput from "../TextInput";
 interface TaskFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (title: string, description?: string) => void;
+  onSubmit: (title: string, description?: string) => boolean;
   task?: Task;
 }
 
@@ -51,8 +51,8 @@ export default function TaskAddEditModal({
   }, [task, reset]);
 
   const onSubmitForm = (data: FormData) => {
-    onSubmit(data.title, data.description);
-    if (!task) {
+    const success = onSubmit(data.title, data.description);
+    if (!task && success) {
       reset();
     }
   };

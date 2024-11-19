@@ -15,6 +15,7 @@
     "react": "19.0.0-rc-66855b96-20241106",
     "react-dom": "19.0.0-rc-66855b96-20241106",
     "react-hook-form": "^7.53.2",
+    "react-hot-toast": "^2.4.1",
     "todo-list-app": "file:",
     "uuid": "^11.0.3",
     "yup": "^1.4.0"

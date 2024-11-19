@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import toast from "react-hot-toast";
 import { v4 as getUUID } from "uuid";
 import DeleteTaskModal from "@/components/todo/DeleteTaskModal";
 import TaskList from "@/components/todo/TaskList";
@@ -8,8 +9,8 @@ import TaskAddEditModal from "@/components/todo/TaskAddEditModal";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import SortingButton from "@/components/todo/SortingButton";
 import { PlusIcon, SearchIcon } from "lucide-react";
-import { SortDirection, SortMethod, SortOption, Task } from "@/types";
 import { checkType } from "@/utils/checkType";
+import { SortDirection, SortMethod, SortOption, Task } from "@/types";
 
 export default function TodoList() {
   const [isLoading, setIsLoading] = useState(true);
@@ -63,6 +64,13 @@ export default function TodoList() {
     localStorage.setItem("sortDirection", sortDirection);
   }, [sortDirection]);
 
+  const isDuplicate = (checkingTask: Task) =>
+    tasks.some(
+      (task) =>
+        task.title.toLowerCase() === checkingTask.title.toLowerCase() &&
+        task.id !== checkingTask.id,
+    );
+
   const handleAddTask = (title: string, description?: string) => {
     const dateNow = Date.now();
     const newTask: Task = {
@@ -72,27 +80,36 @@ export default function TodoList() {
       createdAt: dateNow,
       updatedAt: dateNow,
     };
+    if (isDuplicate(newTask)) {
+      toast.error("A task with the same title already exists");
+      return false;
+    }
     setTasks((prevTasks) => [...prevTasks, newTask]);
     setIsTaskModalOpen(false);
+    return true;
   };
 
   const handleEditTask = (title: string, description?: string) => {
     if (currentTask) {
+      const updatedTask = {
+        ...currentTask,
+        title,
+        description: description || "",
+        updatedAt: Date.now(),
+      };
+      if (isDuplicate(updatedTask)) {
+        toast.error("A task with the same title already exists");
+        return false;
+      }
       setTasks((prevTasks) =>
         prevTasks.map((task) =>
-          task.id === currentTask.id
-            ? {
-                ...task,
-                title,
-                description: description || "",
-                updatedAt: Date.now(),
-              }
-            : task,
+          task.id === currentTask.id ? updatedTask : task,
         ),
       );
       setIsTaskModalOpen(false);
       setCurrentTask(null);
     }
+    return true;
   };
 
   const handleDeleteTask = () => {
@@ -112,7 +129,7 @@ export default function TodoList() {
   };
 
   const sortFunction = (a: Task, b: Task) => {
-    if (sortOption === "title") {
+    if (sortOption === SortOption.Title) {
       return sortDirection === SortDirection.Asc
         ? a.title.localeCompare(b.title)
         : b.title.localeCompare(a.title);
